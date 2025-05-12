@@ -5,18 +5,19 @@
  * You can launch it with the command `npm run standalone`
  */
 
-import Fastify from 'fastify'
-import fp from 'fastify-plugin'
+import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import Fastify from 'fastify';
+import fp from 'fastify-plugin';
 
 // Import library to exit fastify process, gracefully (if possible)
-import closeWithGrace from 'close-with-grace'
+import closeWithGrace from 'close-with-grace';
 
 // Import your application as a normal plugin.
-import serviceApp from './app.js'
+import serviceApp from './app.js';
 
 type LoggerEnvironment = 'development' | 'production' | 'test';
 
-const envToLogger: Record<LoggerEnvironment, any> = {
+const envToLogger: Record<LoggerEnvironment, boolean | object> = {
   development: {
     transport: {
       target: 'pino-pretty',
@@ -28,47 +29,50 @@ const envToLogger: Record<LoggerEnvironment, any> = {
   },
   production: true,
   test: false,
-}
+};
 
-const environment = (process.env.NODE_ENV ?? 'development') as LoggerEnvironment;
+const environment = (process.env.NODE_ENV ??
+  'development') as LoggerEnvironment;
 
 const app = Fastify({
   logger: envToLogger[environment] ?? true,
   ajv: {
     customOptions: {
       coerceTypes: 'array',
-      removeAdditional: 'all'
-    }
-  }
-})
+      removeAdditional: 'all',
+    },
+  },
+}).withTypeProvider<TypeBoxTypeProvider>();
 
-async function init () {
+async function init() {
   // Register your application as a normal plugin.
   // fp must be used to override default error handler
-  app.register(fp(serviceApp))
+  app.register(fp(serviceApp));
 
   // Delay is the number of milliseconds for the graceful close to finish
   closeWithGrace(
-    { delay: process.env.FASTIFY_CLOSE_GRACE_DELAY ? parseInt(process.env.FASTIFY_CLOSE_GRACE_DELAY, 10) : 500 },
+    {
+      delay: process.env.FASTIFY_CLOSE_GRACE_DELAY ?? 500,
+    },
     async ({ err }) => {
       if (err != null) {
-        app.log.error(err)
+        app.log.error(err);
       }
 
-      await app.close()
-    }
-  )
+      await app.close();
+    },
+  );
 
-  await app.ready()
+  await app.ready();
 
   try {
     // Start listening.
-    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
-    app.listen({ port, host: '0.0.0.0'})
+    const port = process.env.PORT ?? 3000;
+    app.listen({ port, host: '0.0.0.0' });
   } catch (err) {
-    app.log.error(err)
-    process.exit(1)
+    app.log.error(err);
+    process.exit(1);
   }
 }
 
-init()
+init();

@@ -1,4 +1,5 @@
-import { type AutoloadPluginOptions } from '@fastify/autoload';
+import { join } from 'node:path';
+import AutoLoad, { type AutoloadPluginOptions } from '@fastify/autoload';
 import type { FastifyPluginAsync } from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import type { FastifyPluginOptions } from 'fastify';
@@ -17,8 +18,14 @@ const app: FastifyPluginAsync<AppOptions> = async (
 ): Promise<void> => {
   fastify.decorate('rootDir', import.meta.dirname);
 
-  fastify.register(documentRoutes);
+  void fastify.register(AutoLoad, {
+    dir: join(import.meta.dirname, 'plugins', 'external'),
+    ignorePattern: /.*.no-load\.js/,
+    options: { ...opts },
+    forceESM: true,
+  });
 
+  fastify.register(documentRoutes);
 };
 
 export default app;
